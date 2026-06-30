@@ -2,8 +2,8 @@ name: Daily Notion Summary to KakaoTalk
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # 매일 00:00 UTC = 09:00 KST
-  workflow_dispatch:      # 수동 실행 버튼
+    - cron: '40 23 * * *'  # 매일 오전 8:40 KST (UTC 23:40)
+  workflow_dispatch:
 
 jobs:
   notify:
@@ -27,7 +27,6 @@ jobs:
           KAKAO_REST_API_KEY: ${{ secrets.KAKAO_REST_API_KEY }}
           KAKAO_REFRESH_TOKEN: ${{ secrets.KAKAO_REFRESH_TOKEN }}
           KAKAO_CLIENT_SECRET: ${{ secrets.KAKAO_CLIENT_SECRET }}
-          GOOGLE_AI_STUDIO: ${{ secrets.GOOGLE_AI_STUDIO }}
           CLOUDFLARE_WORKER_URL: ${{ secrets.CLOUDFLARE_WORKER_URL }}
           CALLBACK_SECRET: ${{ secrets.CALLBACK_SECRET }}
         run: python notify.py
