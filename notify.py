@@ -80,6 +80,10 @@ def send_kakao(access_token, template):
     return resp.json()
 
 
+def build_link(url):
+    return {'web_url': url, 'mobile_web_url': url}
+
+
 def build_completion_url(block_id):
     return f'{WORKER_URL}/done?id={block_id}&secret={CALLBACK_SECRET}'
 
@@ -111,7 +115,7 @@ if __name__ == '__main__':
         result = send_kakao(access_token, {
             'object_type': 'text',
             'text': f'📋 오늘의 인수인계 요약\n\n{summary}',
-            'link': {'web_url': NOTION_PAGE_URL}
+            'link': build_link(NOTION_PAGE_URL)
         })
         print(f'   결과: {result}')
 
@@ -122,7 +126,7 @@ if __name__ == '__main__':
             {
                 'title': t['text'],
                 'description': '탭하면 Notion에서 완료 처리됩니다',
-                'link': {'web_url': build_completion_url(t['id'])}
+                'link': build_link(build_completion_url(t['id']))
             }
             for t in display_todos
         ]
@@ -132,7 +136,7 @@ if __name__ == '__main__':
             contents.append({
                 'title': f'총 {len(todos)}개 항목',
                 'description': 'Notion에서 전체 확인',
-                'link': {'web_url': NOTION_PAGE_URL}
+                'link': build_link(NOTION_PAGE_URL)
             })
 
         remaining = len(todos) - len(display_todos)
@@ -141,9 +145,9 @@ if __name__ == '__main__':
         result = send_kakao(access_token, {
             'object_type': 'list',
             'header_title': header,
-            'header_link': {'web_url': NOTION_PAGE_URL},
+            'header_link': build_link(NOTION_PAGE_URL),
             'contents': contents,
-            'buttons': [{'title': 'Notion 전체보기', 'link': {'web_url': NOTION_PAGE_URL}}]
+            'buttons': [{'title': 'Notion 전체보기', 'link': build_link(NOTION_PAGE_URL)}]
         })
         print(f'   결과: {result}')
 
