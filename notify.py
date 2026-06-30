@@ -32,28 +32,51 @@ def get_kakao_access_token():
 
 
 def get_page_blocks():
+    """페이지네이션으로 최상위 블록 전부 수집"""
+    blocks = []
+    cursor = None
+    while True:
+        params = {'page_size': 100}
+        if cursor:
+            params['start_cursor'] = cursor
+        resp = requests.get(
+            f'https://api.notion.com/v1/blocks/{NOTION_PAGE_ID}/children',
+            headers=NOTION_HEADERS,
+            params=params
+        )
+        data = resp.json()
+        blocks.extend(data.get('results', []))
+        if not data.get('has_more'):
+            break
+        cursor = data.get('next_cursor')
+    return blocks
+
+
+def collect_unchecked_todos(block_id, depth=0):
+    """재귀적으로 미완료 체크박스 수집 (중첩 블록 포함)"""
+    if depth > 3:
+        return []
     resp = requests.get(
-        f'https://api.notion.com/v1/blocks/{NOTION_PAGE_ID}/children',
+        f'https://api.notion.com/v1/blocks/{block_id}/children',
         headers=NOTION_HEADERS,
         params={'page_size': 100}
     )
-    return resp.json().get('results', [])
-
-
-def collect_unchecked_todos(blocks):
     todos = []
-    for block in blocks:
+    for block in resp.json().get('results', []):
         if block.get('type') == 'to_do':
             td = block.get('to_do', {})
             if not td.get('checked', False):
                 text = ''.join(rt.get('plain_text', '') for rt in td.get('rich_text', []))
                 if text:
                     todos.append({'id': block['id'], 'text': text})
+        if block.get('has_children'):
+            todos.extend(collect_unchecked_todos(block['id'], depth + 1))
     return todos
 
 
-def sort_unchecked_to_bottom(blocks):
-    todos = [b for b in blocks if b.get('type') == 'to_do']
+def sort_unchecked_to_bottom(top_blocks):
+    """최상위 to_do 블록 중 미완료 항목을 맨 아래로 이동"""
+    todos = [b for b in top_blocks if b.get('type') == 'to_do']
     unchecked = [b for b in todos if not b['to_do'].get('checked', False)]
 
     if not unchecked:
@@ -108,21 +131,22 @@ if __name__ == '__main__':
     access_token = get_kakao_access_token()
     print('   완료')
 
-    print('2. Notion 블록 가져오기...')
-    blocks = get_page_blocks()
+    print('2. Notion 블록 가져오기 (페이지네이션)...')
+    top_blocks = get_page_blocks()
+    print(f'   최상위 블록: {len(top_blocks)}개')
 
-    print('3. 미완료 항목 수집 중...')
-    todos = collect_unchecked_todos(blocks)
+    print('3. 미완료 체크박스 수집 (중첩 포함)...')
+    todos = collect_unchecked_todos(NOTION_PAGE_ID)
     print(f'   미완료 항목: {len(todos)}개')
 
     print('4. 카카오톡 전송 중...')
     if not todos:
         send_kakao(access_token, {
             'object_type': 'text',
-            'text': '📋 오늘의 할 일\n\n🎉 모든 할 일을 완료했어요!',
+            'text': '📋 TO-DO LIST\n\n🎉 모든 할 일을 완료했어요!',
             'link': build_link(NOTION_PAGE_URL)
         })
-        print('   미완료 항목 없음 — 완료 메시지 전송')
+        print('   완료 메시지 전송')
     else:
         display = todos[:5]
         contents = []
@@ -133,6 +157,7 @@ if __name__ == '__main__':
                 'link': build_link(build_completion_url(t['id'], t['text']))
             })
 
+        # 리스트 템플릿 최소 2개 필요
         if len(contents) == 1:
             contents.append({
                 'title': 'Notion에서 전체 보기',
@@ -140,17 +165,16 @@ if __name__ == '__main__':
                 'link': build_link(NOTION_PAGE_URL)
             })
 
-        header = f'📋 TO-DO LIST  ·  미완료 {len(todos)}개'
         result = send_kakao(access_token, {
             'object_type': 'list',
-            'header_title': header,
+            'header_title': f'📋 TO-DO LIST  ·  미완료 {len(todos)}개',
             'header_link': build_link(NOTION_PAGE_URL),
             'contents': contents,
-            'buttons': [{'title': f'Notion 전체보기', 'link': build_link(NOTION_PAGE_URL)}]
+            'buttons': [{'title': 'Notion 전체보기', 'link': build_link(NOTION_PAGE_URL)}]
         })
         print(f'   전송 결과: {result}')
 
     print('5. Notion 미완료 항목 아래로 정렬 중...')
-    sort_unchecked_to_bottom(blocks)
+    sort_unchecked_to_bottom(top_blocks)
 
     print('완료!')
