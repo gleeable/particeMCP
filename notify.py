@@ -47,9 +47,11 @@ def extract_text(blocks, headers, depth=0):
         elif block_type == 'heading_3' and text:
             lines.append(f'\n### {text}')
         elif block_type == 'bulleted_list_item' and text:
-            lines.append(f'{'  ' * depth}• {text}')
+            indent = '  ' * depth
+            lines.append(f'{indent}• {text}')
         elif block_type == 'numbered_list_item' and text:
-            lines.append(f'{'  ' * depth}- {text}')
+            indent = '  ' * depth
+            lines.append(f'{indent}- {text}')
         elif block_type == 'to_do' and text:
             checked = '✅' if type_data.get('checked') else '☐'
             lines.append(f'{checked} {text}')
